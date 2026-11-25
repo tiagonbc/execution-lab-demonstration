@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Execution Lab · Tiago Costa</title>
+<meta name="description" content="A working demonstration for a quantitative trading role: real Canadian and US market statistics, a simulated order book with iceberg and large-order detection, and execution algorithms tested on simulated days. Built by Tiago Costa.">
+<meta property="og:title" content="Execution Lab · a demonstration by Tiago Costa">
+<meta property="og:description" content="Market structure, market mood, order flow and execution algorithms for Canadian and US equities. Real daily data, simulated order flow.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2332302f'/%3E%3Cpath d='M7 21l5-6 4 3 9-9' stroke='%23fcfcfc' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-basic-dist-min@2.35.2/plotly-basic.min.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="notice" role="note">Demonstration software by Tiago Costa. Daily market statistics are real; order flow is simulated. Not affiliated with or endorsed by Wealthsimple.</div>
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="#/" aria-label="Execution Lab home"><span class="brand-mark" aria-hidden="true"></span>Execution Lab</a>
+    <button class="menu" id="menuBtn" aria-expanded="false" aria-controls="nav">Menu</button>
+    <nav id="nav" aria-label="Sections"></nav>
+  </div>
+</header>
+<main id="main" class="wrap" tabindex="-1"><p class="loading">Loading market data…</p></main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div>
+      <div class="foot-brand">Execution Lab</div>
+      <p>Designed and built by Tiago Costa as a demonstration for the Quantitative Trader role. I can change any part of it: models, data, venues, design.</p>
+    </div>
+    <div class="foot-small">
+      <p>Daily statistics come from my own research databases (Canadian daily bars; US ETF and index closes from Norgate Data). Only derived statistics are published, never price series.</p>
+      <p>The order book, the participants in it and the venue fees are simulated or illustrative. Nothing here is investment advice, and nothing here describes Wealthsimple's systems, orders or clients.</p>
+      <p><a href="https://www.linkedin.com/in/tiagonbc" target="_blank" rel="noopener">LinkedIn: tiagonbc</a></p>
+    </div>
+  </div>
+</footer>
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>
