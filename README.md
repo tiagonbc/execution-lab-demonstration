@@ -4,6 +4,8 @@ A working demonstration for a quantitative trading role, designed and built by T
 It covers Canadian and US equities: how the markets are organised, what mood they are in, which days are cheap
 to trade, who else is in the order book, what an order will cost, and whether the algorithms are behaving.
 
+Live site: https://tiagonbc.github.io/execution-lab-demonstration/
+
 **Daily market statistics are real. The order book, fills and venue fees are simulated or illustrative, and every
 page says which is which.** Not affiliated with or endorsed by Wealthsimple.
 
