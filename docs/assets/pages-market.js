@@ -1,5 +1,5 @@
 // Pages built on REAL daily data: market structure, sentiment and regime, timing and statistics.
-import { store, C, $, $$, esc, f0, f1, f2, money, shares, cur, plot, line, bar, legend, pageHead, shortBox, frame, chartCard, tag, seg, onSeg, instruments, instOptions, findInst, debounce } from "./ui.js";
+import { store, C, $, $$, esc, f0, f1, f2, money, shares, cur, plot, line, bar, legend, pageHead, shortBox, frame, chartCard, tag, seg, onSeg, instruments, instOptions, findInst, debounce, tile } from "./ui.js";
 import * as E from "./engine.js";
 
 // ================================================================= MARKET STRUCTURE
@@ -64,7 +64,7 @@ export function market() {
     <label>Find a stock<input type="search" id="mk-q" placeholder="Symbol or name" autocomplete="off"></label>
   </div>
   <div class="tbl-wrap mt" style="max-height:520px;overflow-y:auto"><table id="mk-tbl"></table></div>
-  <p class="small muted mt">Value per day is the 60-day median. Daily volatility is the 60-day standard deviation of returns. The spread is modelled (one tick at least, wider with volatility, narrower with traded value) because daily bars carry no quotes. Estimated cost uses the impact model on the Execution lab page, for an order worked across the whole day.</p>
+  <p class="small muted mt">Value per day is the 60-day median. Daily volatility is the 60-day standard deviation of returns. Click a row to open that stock, with its history and an order ticket. The spread is modelled (one tick at least, wider with volatility, narrower with traded value) because daily bars carry no quotes. Estimated cost uses the impact model on the Execution lab page, for an order worked across the whole day.</p>
 
   <h2>Where should the order go?</h2>
   <p class="sub">${tag("Simulated book, illustrative fees", "simu")} A Canadian stock shows offers on several venues at once. The router decides which to take first. The best-price rule is not optional; the choice among venues at the same price is where money is saved.</p>
@@ -84,7 +84,7 @@ export function market() {
   function drawMap() {
     const tr = (rows, name, color) => ({
       x: rows.map((x) => x.adv_val), y: rows.map((x) => x.vol_d), type: "scatter", mode: "markers", name,
-      marker: { color, size: 9, opacity: 0.8, line: { color: "#fff", width: 1.5 } },
+      marker: { color, size: 9, opacity: 0.8, line: { color: "#fbfbfb", width: 1.5 } },
       customdata: rows.map((x) => [x.sym, x.name || "", money(x.adv_val, cur(x)), f1(E.preTrade(x, 5e6 / x.px, { windowShare: 0.92 }).bps), f1((5e6 / x.adv_val) * 100)]),
       hovertemplate: "<b>%{customdata[0]}</b> %{customdata[1]}<br>%{customdata[2]} traded per day<br>Daily volatility %{y:.2f}%<br>$5M order = %{customdata[4]}% of a day, about %{customdata[3]} bps<extra></extra>",
     });
@@ -107,7 +107,7 @@ export function market() {
     rows = [...rows].sort((a, b) => (st.sort === "sym" ? a.sym.localeCompare(b.sym) * -st.dir : (a[st.sort] - b[st.sort]) * st.dir));
     const c = st.mkt === "US" ? "US$" : "C$";
     $("#mk-tbl").innerHTML = `<thead><tr>${cols.map(([k, l, cl]) => `<th data-sort="${k}" class="${cl || ""}" aria-sort="${st.sort === k ? (st.dir < 0 ? "descending" : "ascending") : "none"}">${l}${st.sort === k ? (st.dir < 0 ? " ↓" : " ↑") : ""}</th>`).join("")}</tr></thead><tbody>${
-      rows.slice(0, 120).map((x) => `<tr><td class="l"><span class="sym">${esc(x.sym)}</span><span class="nm">${esc(x.name || "")}</span></td><td>${f2(x.px)}</td><td>${money(x.adv_val, c)}</td><td>${shares(x.adv_sh)}</td><td>${f2(x.vol_d)}%</td><td>${f0(x.range_bps)} bps</td><td>${f1(x.spread_bps)} bps</td><td>${f0(x.on_share)}%</td><td>${x.pct >= 100 ? f0(x.pct) : f1(x.pct)}%</td><td><b>${x.pct > 40 ? "too large for one day" : f1(x.cost) + " bps"}</b></td></tr>`).join("") || `<tr><td class="l" colspan="10">No match.</td></tr>`}</tbody>`;
+      rows.slice(0, 120).map((x) => `<tr class="link" data-href="#/stock/${x.mkt}:${x.sym}"><td class="l"><a class="inst" href="#/stock/${x.mkt}:${x.sym}">${tile(x)}<span><span class="sym">${esc(x.sym)}</span><span class="nm">${esc(x.name || "")}</span></span></a></td><td>${f2(x.px)}</td><td>${money(x.adv_val, c)}</td><td>${shares(x.adv_sh)}</td><td>${f2(x.vol_d)}%</td><td>${f0(x.range_bps)} bps</td><td>${f1(x.spread_bps)} bps</td><td>${f0(x.on_share)}%</td><td>${x.pct >= 100 ? f0(x.pct) : f1(x.pct)}%</td><td>${x.pct > 40 ? "too large for one day" : `<span class="pc">${f1(x.cost)} bps</span>`}</td></tr>`).join("") || `<tr><td class="l" colspan="10">No match.</td></tr>`}</tbody>`;
   }
   function drawRouter() {
     const inst = findInst(st.rInst), bk = E.venueBook(inst, st.rSeed), qty = bk.touch * st.rMult;
@@ -127,7 +127,7 @@ export function market() {
     onSeg("mk-mkt", (v) => { st.mkt = v; drawTable(); });
     onSeg("mk-size", (v) => { st.size = +v; drawTable(); });
     $("#mk-q").addEventListener("input", debounce((e) => { st.q = e.target.value; drawTable(); }));
-    $("#mk-tbl").addEventListener("click", (e) => { const th = e.target.closest("th[data-sort]"); if (!th) return; const k = th.dataset.sort; if (st.sort === k) st.dir *= -1; else { st.sort = k; st.dir = -1; } drawTable(); });
+    $("#mk-tbl").addEventListener("click", (e) => { const tr = e.target.closest("tr.link"); if (tr && !e.target.closest("a")) { location.hash = tr.dataset.href; return; } const th = e.target.closest("th[data-sort]"); if (!th) return; const k = th.dataset.sort; if (st.sort === k) st.dir *= -1; else { st.sort = k; st.dir = -1; } drawTable(); });
     $("#rt-inst").addEventListener("change", (e) => { st.rInst = e.target.value; drawRouter(); });
     onSeg("rt-mult", (v) => { st.rMult = +v; drawRouter(); });
     $("#rt-new").addEventListener("click", () => { st.rSeed++; drawRouter(); });

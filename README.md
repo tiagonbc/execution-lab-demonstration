@@ -13,7 +13,8 @@ page says which is which.** Not affiliated with or endorsed by Wealthsimple.
 
 | Page | What it answers | Data |
 |---|---|---|
-| Overview | Six questions with one live result each; the posting mapped to the lab | mixed |
+| Home | A headline market reading over a chart you can read point by point; six questions with one live result each; the posting mapped to the lab | real + simulated |
+| Stock (one per name) | Weekly volatility and volume history, what an order of each size costs, market details, detector alerts, and an order ticket that estimates and simulates a trade | real + simulated |
 | Market structure | Canada and the US side by side; liquidity of 240 TSX names and US names; multi-venue router | real + simulated book |
 | Sentiment | A daily market-mood score for Canada and the US, and what to change in the algorithms | real |
 | Timing | Weekday, calendar-event and volatility effects; return distributions; forecasts scored out of sample | real |
@@ -22,6 +23,13 @@ page says which is which.** Not affiliated with or endorsed by Wealthsimple.
 | Operations | Daily routine, control charts that catch planted problem days, limits and kill switch | simulated |
 | About | Who built it, what is real, design check, glossary | |
 
+## Interface
+
+The layout follows Wealthsimple's web app: a slim icon rail, a headline number over a scrubbing chart, range buttons,
+list rows, a search panel (press `/`) and an order ticket. The typeface (Hanken Grotesk) and the icons are open
+stand-ins chosen or drawn for this project. No logo, wordmark or artwork is used, and the ticket sends nothing:
+it runs the lab's models. Keyboard: `/` search, `H M S T F E O A` for the pages, arrow keys to read a chart.
+
 ## Layout
 
 ```
@@ -29,7 +37,9 @@ build_data.py          Python (pandas, NumPy): raw daily price files -> docs/dat
 docs/index.html        static site, no server-side code
 docs/assets/engine.js  day simulator, impact model, six algorithms, Monte Carlo, order-book simulator,
                        iceberg / sliced-order / burst detectors, venue router (no dependencies)
-docs/assets/*.js       pages and charts (Plotly)
+docs/assets/app.js     app shell: rail, search, keyboard shortcuts, router
+docs/assets/ui.js      formatting, icons, the scrubbing chart, shared page blocks
+docs/assets/pages-*.js pages and charts (Plotly)
 tests/engine.test.mjs  15 automated tests for the engine
 ```
 

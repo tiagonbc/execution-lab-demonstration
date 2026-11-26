@@ -1,13 +1,16 @@
 // Pages built on SIMULATION calibrated to real daily statistics: order flow, execution lab, daily operations.
-import { store, C, ALGO_COLOR, $, $$, esc, f0, f1, f2, money, shares, cur, clock, plot, line, bar, legend, pageHead, shortBox, frame, chartCard, tag, seg, onSeg, instruments, instOptions, findInst, debounce } from "./ui.js";
+import { store, C, ALGO_COLOR, $, $$, esc, f0, f1, f2, money, shares, cur, clock, plot, line, bar, legend, pageHead, shortBox, frame, chartCard, tag, seg, onSeg, instruments, instOptions, findInst, debounce, query, instKey } from "./ui.js";
 import * as E from "./engine.js";
 
 const ALGO = Object.fromEntries(E.ALGOS.map((a) => [a.id, a]));
+/** The simulator list, plus the stock named in the address when it is outside that list. */
+const labList = (key) => { const l = instruments(), x = findInst(key); return x && !l.some((i) => instKey(i) === key) ? [x, ...l] : l; };
+const asked = (fallback) => { const k = query().inst; return k && findInst(k) ? k : fallback; };
 const hourTicks = { tickvals: [0, 60, 120, 180, 240, 300, 360, 390], ticktext: ["9:30", "10:30", "11:30", "12:30", "13:30", "14:30", "15:30", "16:00"] };
 
 // ================================================================= ORDER FLOW
 export function flow() {
-  const st = { inst: "CA:RY", seed: 7, ice: 3, par: 2, reveal: false, idx: 0, timer: null };
+  const st = { inst: asked("CA:RY"), seed: 7, ice: 3, par: 2, reveal: false, idx: 0, timer: null };
   let sim, ice, par, bursts, vp, score, tk;
 
   const html = `
@@ -15,7 +18,7 @@ export function flow() {
   <div id="fl-short"></div>
   ${frame("A large order is never alone. Hidden size, other algorithms and impatient traders decide what a fill costs, and none of them announce themselves.", "Simulates a realistic book for a real stock, hides participants in it, and scores how many the detectors find and how many false alarms they raise.", "Reading other participants is how I trade my own intraday strategies. The same reading tells an execution algorithm when to lean in and when to step back.")}
   <div class="controls">
-    <label>Stock<select id="fl-inst">${instOptions(instruments(), st.inst)}</select></label>
+    <label>Stock<select id="fl-inst">${instOptions(labList(st.inst), st.inst)}</select></label>
     <div class="ctl">Icebergs planted ${seg("fl-ice", [["0", "0"], ["2", "2"], ["3", "3"], ["5", "5"]], String(st.ice))}</div>
     <div class="ctl">Sliced orders planted ${seg("fl-par", [["0", "0"], ["1", "1"], ["2", "2"], ["3", "3"]], String(st.par))}</div>
     <button class="btn sm" id="fl-new" type="button">New session</button>
@@ -156,7 +159,8 @@ export function flow() {
 // ================================================================= EXECUTION LAB
 const WINDOWS = { day: [0, 390, "All day, 9:30 to 16:00"], am: [0, 120, "First two hours"], mid: [30, 330, "10:00 to 15:00"], pm: [270, 390, "Last two hours"] };
 export function execution() {
-  const st = { inst: "CA:RY", side: 1, pct: 5, win: "day", useClose: true, closeShare: 8, signalQ: 10, volMult: 1, rate: 10, day: 1, show: new Set(["vwap", "is", "adaptive"]) };
+  const Q = query();
+  const st = { inst: asked("CA:RY"), side: Q.side === "-1" ? -1 : 1, pct: Math.min(30, Math.max(0.5, +Q.pct || 5)), win: WINDOWS[Q.win] ? Q.win : "day", useClose: true, closeShare: 8, signalQ: 10, volMult: 1, rate: 10, day: 1, show: new Set(["vwap", "is", "adaptive"]) };
   const algos = E.ALGOS.map((a) => a.id);
   let mc;
 
@@ -165,10 +169,10 @@ export function execution() {
   <div id="ex-short"></div>
   ${frame("A large order moves the price against itself. Trade fast and you pay impact; trade slowly and the price drifts while you wait.", "Simulates the day from the stock's real price, volume and volatility, and runs every algorithm on the very same days, in mirrored up-and-down pairs, so the comparison is fair and not a matter of luck.", "The posting asks for algorithms that decide how orders are generated, and for a simulation framework to validate them. This is both, small enough to read.")}
   <div class="controls">
-    <label>Stock<select id="ex-inst">${instOptions(instruments(), st.inst)}</select></label>
+    <label>Stock<select id="ex-inst">${instOptions(labList(st.inst), st.inst)}</select></label>
     <div class="ctl">Side ${seg("ex-side", [["1", "Buy"], ["-1", "Sell"]], String(st.side))}</div>
     <label>Order size: <span id="ex-pct-l"></span><input type="range" id="ex-pct" min="0.5" max="30" step="0.5" value="${st.pct}"></label>
-    <label>Trading window<select id="ex-win">${Object.entries(WINDOWS).map(([k, v]) => `<option value="${k}">${v[2]}</option>`).join("")}</select></label>
+    <label>Trading window<select id="ex-win">${Object.entries(WINDOWS).map(([k, v]) => `<option value="${k}" ${k === st.win ? "selected" : ""}>${v[2]}</option>`).join("")}</select></label>
     <label class="check"><input type="checkbox" id="ex-close" checked> Use the closing auction</label>
   </div>
   <div class="controls" style="margin-top:10px">
@@ -218,15 +222,15 @@ export function execution() {
     const scaled = { ...inst, vol_d: inst.vol_d * st.volMult };
     const pre = E.preTrade(scaled, o.qty, { windowShare: ws, dayShare: (w[1] - w[0]) / 390, cross: E.CROSS.vwap });
     const notional = o.qty * inst.px;
-    $("#ex-pre").innerHTML = `<h3>${st.side > 0 ? "Buy" : "Sell"} ${f0(o.qty)} ${esc(inst.sym)} <span class="muted" style="font:500 15px var(--sans)">${money(notional, c)}</span></h3>
-      <div class="grid g3 mt"><div><div class="num" style="font:500 32px/1 var(--serif)">${f1(pre.bps)} bps</div><div class="small muted">expected cost, about ${money((notional * pre.bps) / 1e4, c)}</div></div>
-      <div><div class="num" style="font:500 32px/1 var(--serif)">±${f0(pre.risk)} bps</div><div class="small muted">how far the price typically drifts while the order works</div></div>
-      <div><div class="num" style="font:500 32px/1 var(--serif)">${f1(pre.part)}%</div><div class="small muted">of the volume in the window</div></div></div>
+    $("#ex-pre").innerHTML = `<h3>${st.side > 0 ? "Buy" : "Sell"} ${f0(o.qty)} ${esc(inst.sym)} <span class="muted" style="font:500 14px var(--sans)">${money(notional, c)}</span></h3>
+      <div class="grid g3 mt"><div><div class="num bigfig">${f1(pre.bps)} bps</div><div class="small muted">expected cost, about ${money((notional * pre.bps) / 1e4, c)}</div></div>
+      <div><div class="num bigfig">±${f0(pre.risk)} bps</div><div class="small muted">how far the price typically drifts while the order works</div></div>
+      <div><div class="num bigfig">${f1(pre.part)}%</div><div class="small muted">of the volume in the window</div></div></div>
       <div class="bars" style="margin-top:18px">${[["Crossing the spread", pre.spread], ["Temporary impact (pressure while trading)", pre.temp], ["Permanent impact (information leaked)", pre.perm]].map(([l, v]) => `<div class="bar" style="grid-template-columns:260px 1fr 64px"><span>${l}</span><span class="track"><span class="fill" style="width:${Math.min(100, (v / pre.bps) * 100)}%"></span></span><span class="v">${f1(v)} bps</span></div>`).join("")}</div>
       <p class="how" style="margin-top:14px">${pre.part > 25 ? `<b>Too large for this window.</b> At ${f0(pre.part)}% of volume the order would dominate the tape. I would spread it over more days or find a block.` : pre.part > 10 ? `<b>Heavy.</b> Above 10% of volume the order is visible; a longer window or the closing auction would help.` : `<b>Comfortable.</b> Under 10% of volume, a patient schedule should stay close to this estimate.`} Real inputs: price ${f2(inst.px)}, ${shares(inst.adv_sh)} shares a day, daily volatility ${f2(inst.vol_d)}%, modelled spread ${f1(inst.spread_bps)} bps.</p>`;
     const xs = [0.5, 1, 2, 3, 5, 7.5, 10, 15, 20, 25, 30];
     const ys = xs.map((p) => +E.preTrade(scaled, (inst.adv_sh * p) / 100, { windowShare: ws, cross: E.CROSS.vwap }).bps.toFixed(1));
-    plot("ex-curve", [line(xs, ys, "Estimated cost", C.c1, { hovertemplate: "%{x}% of a day: %{y} bps<extra></extra>" }), { x: [st.pct], y: [+pre.bps.toFixed(1)], type: "scatter", mode: "markers", marker: { size: 12, color: C.ink, line: { color: "#fff", width: 2 } }, hovertemplate: "Your order: %{y} bps<extra></extra>" }],
+    plot("ex-curve", [line(xs, ys, "Estimated cost", C.c1, { hovertemplate: "%{x}% of a day: %{y} bps<extra></extra>" }), { x: [st.pct], y: [+pre.bps.toFixed(1)], type: "scatter", mode: "markers", marker: { size: 12, color: C.ink, line: { color: "#fbfbfb", width: 2 } }, hovertemplate: "Your order: %{y} bps<extra></extra>" }],
       { hovermode: "closest", xaxis: { ticksuffix: "%", title: { text: "Order size, % of a day's volume", font: { size: 12 } } }, yaxis: { ticksuffix: " bps", rangemode: "tozero" }, margin: { b: 48, l: 62 } });
     return pre;
   }
@@ -235,7 +239,7 @@ export function execution() {
     const res = Object.fromEntries(algos.map((a) => [a, E.runAlgo(day, inst, o, a, params())]));
     const xs = [...Array(391).keys()], base = day.u[w[0]];
     plot("ex-path", [line(xs, xs.map((m) => +(((day.u[m] - base) / base) * 1e4).toFixed(1)), "Price vs arrival", C.ink, { line: { width: 1.6 }, hovertemplate: "%{y} bps<extra></extra>" })],
-      { xaxis: hourTicks, yaxis: { ticksuffix: " bps" }, shapes: [{ type: "rect", yref: "paper", y0: 0, y1: 1, x0: w[0], x1: w[1], fillcolor: "rgba(245,243,239,.9)", line: { width: 0 }, layer: "below" }] });
+      { xaxis: hourTicks, yaxis: { ticksuffix: " bps" }, shapes: [{ type: "rect", yref: "paper", y0: 0, y1: 1, x0: w[0], x1: w[1], fillcolor: "rgba(0,0,0,.045)", line: { width: 0 }, layer: "below" }] });
     const fillTr = [...st.show].map((a) => { let c = 0; const y = xs.map((m) => { c += res[a].fills[m]; return +((c / (o.qty || 1)) * 100).toFixed(1); }); return line(xs, y, ALGO[a].name, ALGO_COLOR[a], { hovertemplate: `%{y}%<extra>${ALGO[a].name}</extra>` }); });
     plot("ex-fill", fillTr, { xaxis: hourTicks, yaxis: { ticksuffix: "%", range: [0, 102] } });
     const c = cur(inst), best = Math.min(...algos.map((a) => res[a].isBps));
@@ -349,7 +353,7 @@ export function operations() {
     const hl = (y, dash) => ({ type: "line", xref: "paper", x0: 0, x1: 1, y0: y, y1: y, line: { color: C.ink, width: 1, dash } });
     plot(id, [{ x: xs, y: ys, type: "scatter", mode: "lines+markers", line: { color: C.line, width: 1.5 }, marker: { size: flagged.map((f) => (f ? 12 : 8)), color: flagged.map((f) => (f ? C.c2 : C.c1)), line: { color: "#fff", width: 1.5 } }, hovertemplate: `Day %{x}: %{y}${suffix}<extra></extra>` }],
       { hovermode: "closest", xaxis: { title: { text: "Trading day", font: { size: 12 } } }, yaxis: { ticksuffix: suffix }, margin: { b: 48, l: 56 },
-        shapes: [hl(L.hi, "dash"), hl(L.m, "dot"), { type: "rect", yref: "paper", y0: 0, y1: 1, x0: 0.5, x1: 20.5, fillcolor: "rgba(245,243,239,.9)", line: { width: 0 }, layer: "below" }],
+        shapes: [hl(L.hi, "dash"), hl(L.m, "dot"), { type: "rect", yref: "paper", y0: 0, y1: 1, x0: 0.5, x1: 20.5, fillcolor: "rgba(0,0,0,.045)", line: { width: 0 }, layer: "below" }],
         annotations: [{ x: 10.5, y: 1, yref: "paper", text: "sets the normal range", showarrow: false, font: { size: 11.5, color: C.ink2 }, yanchor: "top" }] });
   }
   function mount() { control("op-gap", "gap", " bps"); control("op-drift", "drift", "×"); }
